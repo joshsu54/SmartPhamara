@@ -2169,17 +2169,11 @@ window.onload = function() {
 // API SYNC LOGIC
 async function syncToDatabase() {
     try {
-        await fetch('http://localhost:3000/api/syncInventory', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dbInventory)
-        });
-        await fetch('http://localhost:3000/api/syncRequests', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dbRequests)
-        });
+        if (typeof isFirebaseInitialized !== 'undefined' && isFirebaseInitialized && typeof firebaseDb !== 'undefined') {
+            await firebaseDb.ref('inventory').set(dbInventory);
+            await firebaseDb.ref('requests').set(dbRequests);
+        }
     } catch (error) {
-        // Silently fail API sync (expected for users without local node server)
+        console.error("Firebase sync failed:", error);
     }
 }

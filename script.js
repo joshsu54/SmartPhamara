@@ -961,7 +961,7 @@ async function executeReservationAPI() {
         else if (med.stock_SHISHENG_KZ >= tempReserveData.qty) transferFromStation = 'SHISHENG_KZ';
         else transferFromStation = 'ZISHENG';
         
-        showToast("🏪 本店庫存不足，系統已為您自動配對大溪支援藥局，啟動聯合專車調度中！", "warning");
+        showToast("🏪 德怡藥局庫存不足，系統正自動向其他支援藥局申請調撥中！", "warning");
     }
 
     let reserveId = "RES-" + Math.floor(Math.random() * 9000 + 1000);
@@ -1425,7 +1425,13 @@ function renderInventoryTable() {
         // admin, driver, or pharmacist
         thHtml += `<th>德怡(復興)</th><th>新資生復興(大溪)</th><th>大樹康莊(大溪)</th><th>新資生康莊(大溪)</th><th>資生(大溪)</th>`;
     }
-    thHtml += `<th>用途分類</th><th>跨店調撥與預約決策</th></tr>`;
+    if (currentRole === 'admin') {
+        thHtml += `<th>用途分類</th><th>審計與稽核紀錄</th></tr>`;
+    } else if (currentRole === 'buyer') {
+        thHtml += `<th>用途分類</th><th>預約領藥</th></tr>`;
+    } else {
+        thHtml += `<th>用途分類</th><th>跨店調撥與預約決策</th></tr>`;
+    }
     thead.innerHTML = thHtml;
 
     tbody.innerHTML = '';
@@ -1457,8 +1463,8 @@ function renderInventoryTable() {
         } else if (currentRole === 'pharmacist') {
             let myStock = item['stock_' + currentStation] || 0;
             actionBtn = myStock < threshold 
-                ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:0.8rem;" onclick="openTransferModal('${item.drugChineseName}')"><i class="fa-solid fa-truck-ramp-box"></i> 告急求援</button>` 
-                : `<button class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem; background:var(--primary-light);" onclick="openTransferModal('${item.drugChineseName}')"><i class="fa-solid fa-boxes-stacked"></i> 調撥庫存</button>`;
+                ? `<button class="btn btn-danger" style="padding:6px 12px;font-size:0.8rem;" onclick="openTransferModal('${item.drugChineseName}')"><i class="fa-solid fa-truck-ramp-box"></i> 緊急向他店調撥</button>` 
+                : `<button class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem; background:var(--primary-light);" onclick="openTransferModal('${item.drugChineseName}')"><i class="fa-solid fa-boxes-stacked"></i> 向他店申請調撥</button>`;
         } else if (currentRole === 'admin') { 
             actionBtn = `<button class="btn btn-primary" style="background:#475569;padding:6px 12px;font-size:0.8rem;" onclick="showFlowLog('${item.drugChineseName}')">審計稽核</button>`; 
         }

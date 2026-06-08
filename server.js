@@ -27,9 +27,10 @@ app.get('/api/requests', (req, res) => {
     db.all(`SELECT * FROM requests`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         const data = rows.map(r => {
-            const out = {...r, from: r.from_station, to: r.to_station};
+            const out = {...r, from: r.from_station, to: r.to_station, time: r.date};
             delete out.from_station;
             delete out.to_station;
+            delete out.date;
             return out;
         });
         res.json(data);

@@ -481,7 +481,7 @@ function startOptimizedRoute() {
         req.logisticsCondition = '常溫運輸中';
     });
     
-    localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+    syncToDatabase();
     showToast("🚚 最佳配送路線已啟用！專車已啟程出發配送全線藥物。", "success");
     updateSystemState();
 }
@@ -763,7 +763,7 @@ function seedMockRequests() {
             logisticsCondition: "常溫運輸中"
         }
     ];
-    localStorage.setItem('SmartPharma_Requests', JSON.stringify(requests));
+    dbRequests = requests; syncToDatabase();
     return requests;
 }
 
@@ -778,95 +778,22 @@ function getDrugCategory(item) {
 
 async function fetchSystemData() {
     try {
-        const nhiRes = await fetch('mock_nhi_data.json');
-        const nhiData = await nhiRes.json();
+        const invRes = await fetch('http://localhost:3000/api/inventory');
+        dbInventory = await invRes.json();
         
-        let localInv = localStorage.getItem('SmartPharma_Inventory');
-        if (localInv) {
-            dbInventory = JSON.parse(localInv);
-            // Ensure similar drugs exist in database
-            if (!dbInventory.some(item => item.drugCode === 'B023245199')) {
-                dbInventory = nhiData.inventory || [];
-                // Add Ibuprofen fallback if missing
-                if (!dbInventory.some(item => item.drugCode === 'B023245199')) {
-                    dbInventory.push(
-                        { drugCode: 'B023245199', drugChineseName: '布洛芬止痛膠囊 (Ibuprofen) - 相似替代藥', drugEnglishName: 'Ibuprofen 400mg', price: 20, rxOnly: false, atcCode: 'N02BE99', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'AstraZeneca', temperatureReq: 'Room', expiryDays: 190, batchNo: 'B33842', stock_DEYI: 25, stock_FUXING_HC: 20, stock_KAO_CLINIC: 10, stock_SHISHENG_FX: 90, stock_GREAT_TREE: 100, stock_SHISHENG_KZ: 70, stock_ZISHENG: 50 },
-                        { drugCode: 'I012345699', drugChineseName: '美獲平糖適錠 (Metformin) - 糖尿病相似替代藥', drugEnglishName: 'Metformin 500mg', price: 10, rxOnly: true, atcCode: 'A10BA02', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Sandoz', temperatureReq: 'Room', expiryDays: 160, batchNo: 'B78129', stock_DEYI: 8, stock_FUXING_HC: 10, stock_KAO_CLINIC: 5, stock_SHISHENG_FX: 100, stock_GREAT_TREE: 80, stock_SHISHENG_KZ: 60, stock_ZISHENG: 40 }
-                    );
-                }
-                localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
-            }
-        } else {
-            dbInventory = nhiData.inventory || [];
-            if (!dbInventory.some(item => item.drugCode === 'B023245199')) {
-                dbInventory.push(
-                    { drugCode: 'B023245199', drugChineseName: '布洛芬止痛膠囊 (Ibuprofen) - 相似替代藥', drugEnglishName: 'Ibuprofen 400mg', price: 20, rxOnly: false, atcCode: 'N02BE99', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'AstraZeneca', temperatureReq: 'Room', expiryDays: 190, batchNo: 'B33842', stock_DEYI: 25, stock_FUXING_HC: 20, stock_KAO_CLINIC: 10, stock_SHISHENG_FX: 90, stock_GREAT_TREE: 100, stock_SHISHENG_KZ: 70, stock_ZISHENG: 50 },
-                    { drugCode: 'I012345699', drugChineseName: '美獲平糖適錠 (Metformin) - 糖尿病相似替代藥', drugEnglishName: 'Metformin 500mg', price: 10, rxOnly: true, atcCode: 'A10BA02', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Sandoz', temperatureReq: 'Room', expiryDays: 160, batchNo: 'B78129', stock_DEYI: 8, stock_FUXING_HC: 10, stock_KAO_CLINIC: 5, stock_SHISHENG_FX: 100, stock_GREAT_TREE: 80, stock_SHISHENG_KZ: 60, stock_ZISHENG: 40 }
-                );
-            }
-            localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
+        dbInventory.forEach(item => {
+            item.usageCategory = getDrugCategory(item);
+        });
+
+        const reqRes = await fetch('http://localhost:3000/api/requests');
+        dbRequests = await reqRes.json();
+        
+        if (!dbRequests || dbRequests.length === 0) {
+            dbRequests = seedMockRequests();
         }
     } catch (e) {
-        console.warn("⚠️ 連線 mock_nhi_data.json 失敗，改用記憶體 fallback 載入數據！");
-        let localInv = localStorage.getItem('SmartPharma_Inventory');
-        if (localInv) {
-            dbInventory = JSON.parse(localInv);
-        } else {
-            dbInventory = [
-                { drugCode: 'A059591100', drugChineseName: '克流感膠囊 (Tamiflu) - 流感用藥', drugEnglishName: 'Tamiflu Capsules 75mg', price: 950, rxOnly: true, atcCode: 'J05AH02', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'Roche', temperatureReq: 'Room', expiryDays: 180, batchNo: 'B82103', stock_DEYI: 12, stock_FUXING_HC: 18, stock_KAO_CLINIC: 4, stock_SHISHENG_FX: 60, stock_GREAT_TREE: 80, stock_SHISHENG_KZ: 45, stock_ZISHENG: 35 },
-                { drugCode: 'B023245100', drugChineseName: '普拿疼止痛錠 (Panadol) - 退燒止痛', drugEnglishName: 'Panadol 500mg', price: 15, rxOnly: false, atcCode: 'N02BE01', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'GSK', temperatureReq: 'Room', expiryDays: -5, expiryDate: '2026-05-30', batchNo: 'B22938', stock_DEYI: 40, stock_FUXING_HC: 30, stock_KAO_CLINIC: 15, stock_SHISHENG_FX: 100, stock_GREAT_TREE: 120, stock_SHISHENG_KZ: 80, stock_ZISHENG: 60 },
-                { drugCode: 'B023245199', drugChineseName: '布洛芬止痛膠囊 (Ibuprofen) - 相似替代藥', drugEnglishName: 'Ibuprofen 400mg', price: 20, rxOnly: false, atcCode: 'N02BE99', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'AstraZeneca', temperatureReq: 'Room', expiryDays: 190, batchNo: 'B33842', stock_DEYI: 25, stock_FUXING_HC: 20, stock_KAO_CLINIC: 10, stock_SHISHENG_FX: 90, stock_GREAT_TREE: 100, stock_SHISHENG_KZ: 70, stock_ZISHENG: 50 },
-                { drugCode: 'I012345678', drugChineseName: '胰島素注射劑 (Insulin) - 糖尿病慢箋', drugEnglishName: 'Novomix 30 Flexpen', price: 800, rxOnly: true, atcCode: 'A10AD05', dosageForm: '注射劑', singleCompoundFlag: '複方', manufacturer: 'Novo Nordisk', temperatureReq: 'Cold Chain 2-8°C', expiryDays: 25, expiryDate: '2026-06-30', batchNo: 'B90234', stock_DEYI: 3, stock_FUXING_HC: 2, stock_KAO_CLINIC: 1, stock_SHISHENG_FX: 45, stock_GREAT_TREE: 60, stock_SHISHENG_KZ: 30, stock_ZISHENG: 25 },
-                { drugCode: 'I012345699', drugChineseName: '美獲平糖適錠 (Metformin) - 糖尿病相似替代藥', drugEnglishName: 'Metformin 500mg', price: 10, rxOnly: true, atcCode: 'A10BA02', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Sandoz', temperatureReq: 'Room', expiryDays: 85, expiryDate: '2026-08-30', batchNo: 'B78129', stock_DEYI: 8, stock_FUXING_HC: 10, stock_KAO_CLINIC: 5, stock_SHISHENG_FX: 100, stock_GREAT_TREE: 80, stock_SHISHENG_KZ: 60, stock_ZISHENG: 40 },
-                { drugCode: 'E060800100', drugChineseName: '倍拉維 (Paxlovid) - COVID-19專用藥', drugEnglishName: 'Paxlovid Film-Coated', price: 20000, rxOnly: true, atcCode: 'J05AE30', dosageForm: '包衣錠劑', singleCompoundFlag: '複方', manufacturer: 'Pfizer', temperatureReq: 'Room', expiryDays: 90, batchNo: 'B11234', stock_DEYI: 5, stock_SHISHENG_FX: 20, stock_GREAT_TREE: 30, stock_SHISHENG_KZ: 15, stock_ZISHENG: 10 },
-                { drugCode: 'A07DA03100', drugChineseName: '樂必寧膠囊 (Loperamide) - 緩解腹瀉', drugEnglishName: 'Loperamide 2mg', price: 10, rxOnly: false, atcCode: 'A07DA03', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'Teva', temperatureReq: 'Room', expiryDays: 300, batchNo: 'L99821', stock_DEYI: 30, stock_SHISHENG_FX: 80, stock_GREAT_TREE: 90, stock_SHISHENG_KZ: 50, stock_ZISHENG: 40 },
-                { drugCode: 'M02AA13100', drugChineseName: '伊普芬液 (Ibuprofen) - 兒童腸病毒退燒', drugEnglishName: 'Ibuprofen Suspension 20mg/ml', price: 50, rxOnly: false, atcCode: 'M02AA13', dosageForm: '口服液', singleCompoundFlag: '單方', manufacturer: 'YungShin', temperatureReq: 'Room', expiryDays: 150, batchNo: 'I22014', stock_DEYI: 15, stock_SHISHENG_FX: 40, stock_GREAT_TREE: 60, stock_SHISHENG_KZ: 30, stock_ZISHENG: 20 },
-                { drugCode: 'R05DA09100', drugChineseName: '莫敵咳 (Dextromethorphan) - 鎮咳祛痰', drugEnglishName: 'Dextromethorphan 15mg', price: 12, rxOnly: false, atcCode: 'R05DA09', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Purzer', temperatureReq: 'Room', expiryDays: 400, batchNo: 'D34521', stock_DEYI: 50, stock_SHISHENG_FX: 150, stock_GREAT_TREE: 200, stock_SHISHENG_KZ: 120, stock_ZISHENG: 80 },
-                { drugCode: 'R06AB04100', drugChineseName: '敏肝寧 (Chlorpheniramine) - 抗過敏', drugEnglishName: 'Chlorpheniramine 4mg', price: 8, rxOnly: false, atcCode: 'R06AB04', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Standard', temperatureReq: 'Room', expiryDays: 360, batchNo: 'C88732', stock_DEYI: 60, stock_SHISHENG_FX: 180, stock_GREAT_TREE: 220, stock_SHISHENG_KZ: 140, stock_ZISHENG: 90 },
-                { drugCode: 'C08CA01100', drugChineseName: '脈優錠 (Amlodipine) - 高血壓用藥', drugEnglishName: 'Norvasc 5mg', price: 30, rxOnly: true, atcCode: 'C08CA01', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Pfizer', temperatureReq: 'Room', expiryDays: 200, batchNo: 'N55234', stock_DEYI: 10, stock_SHISHENG_FX: 45, stock_GREAT_TREE: 60, stock_SHISHENG_KZ: 35, stock_ZISHENG: 25 },
-                { drugCode: 'C10AA07100', drugChineseName: '冠脂妥 (Rosuvastatin) - 降血脂用藥', drugEnglishName: 'Crestor 10mg', price: 45, rxOnly: true, atcCode: 'C10AA07', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'AstraZeneca', temperatureReq: 'Room', expiryDays: 250, batchNo: 'R12934', stock_DEYI: 12, stock_SHISHENG_FX: 50, stock_GREAT_TREE: 70, stock_SHISHENG_KZ: 40, stock_ZISHENG: 30 }
-            ];
-            localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
-        }
-    }
-
-    if (dbInventory && dbInventory.length > 0 && !dbInventory.some(item => item.drugCode === 'A07DA03100')) {
-        dbInventory.push(
-            { drugCode: 'A07DA03100', drugChineseName: '樂必寧膠囊 (Loperamide) - 緩解腹瀉', drugEnglishName: 'Loperamide 2mg', price: 10, rxOnly: false, atcCode: 'A07DA03', dosageForm: '膠囊劑', singleCompoundFlag: '單方', manufacturer: 'Teva', temperatureReq: 'Room', expiryDays: 300, batchNo: 'L99821', stock_DEYI: 30, stock_SHISHENG_FX: 80, stock_GREAT_TREE: 90, stock_SHISHENG_KZ: 50, stock_ZISHENG: 40 },
-            { drugCode: 'M02AA13100', drugChineseName: '伊普芬液 (Ibuprofen) - 兒童腸病毒退燒', drugEnglishName: 'Ibuprofen Suspension 20mg/ml', price: 50, rxOnly: false, atcCode: 'M02AA13', dosageForm: '口服液', singleCompoundFlag: '單方', manufacturer: 'YungShin', temperatureReq: 'Room', expiryDays: 150, batchNo: 'I22014', stock_DEYI: 15, stock_SHISHENG_FX: 40, stock_GREAT_TREE: 60, stock_SHISHENG_KZ: 30, stock_ZISHENG: 20 },
-            { drugCode: 'R05DA09100', drugChineseName: '莫敵咳 (Dextromethorphan) - 鎮咳祛痰', drugEnglishName: 'Dextromethorphan 15mg', price: 12, rxOnly: false, atcCode: 'R05DA09', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Purzer', temperatureReq: 'Room', expiryDays: 400, batchNo: 'D34521', stock_DEYI: 50, stock_SHISHENG_FX: 150, stock_GREAT_TREE: 200, stock_SHISHENG_KZ: 120, stock_ZISHENG: 80 },
-            { drugCode: 'R06AB04100', drugChineseName: '敏肝寧 (Chlorpheniramine) - 抗過敏', drugEnglishName: 'Chlorpheniramine 4mg', price: 8, rxOnly: false, atcCode: 'R06AB04', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Standard', temperatureReq: 'Room', expiryDays: 360, batchNo: 'C88732', stock_DEYI: 60, stock_SHISHENG_FX: 180, stock_GREAT_TREE: 220, stock_SHISHENG_KZ: 140, stock_ZISHENG: 90 },
-            { drugCode: 'C08CA01100', drugChineseName: '脈優錠 (Amlodipine) - 高血壓用藥', drugEnglishName: 'Norvasc 5mg', price: 30, rxOnly: true, atcCode: 'C08CA01', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'Pfizer', temperatureReq: 'Room', expiryDays: 200, batchNo: 'N55234', stock_DEYI: 10, stock_SHISHENG_FX: 45, stock_GREAT_TREE: 60, stock_SHISHENG_KZ: 35, stock_ZISHENG: 25 },
-            { drugCode: 'C10AA07100', drugChineseName: '冠脂妥 (Rosuvastatin) - 降血脂用藥', drugEnglishName: 'Crestor 10mg', price: 45, rxOnly: true, atcCode: 'C10AA07', dosageForm: '錠劑', singleCompoundFlag: '單方', manufacturer: 'AstraZeneca', temperatureReq: 'Room', expiryDays: 250, batchNo: 'R12934', stock_DEYI: 12, stock_SHISHENG_FX: 50, stock_GREAT_TREE: 70, stock_SHISHENG_KZ: 40, stock_ZISHENG: 30 }
-        );
-        localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
-    }
-
-    // Deduplicate dbInventory by drugCode, summing up stocks
-    let uniqueDb = {};
-    dbInventory.forEach(item => {
-        if (!uniqueDb[item.drugCode]) {
-            uniqueDb[item.drugCode] = { ...item };
-        } else {
-            ['DEYI', 'SHISHENG_FX', 'GREAT_TREE', 'SHISHENG_KZ', 'ZISHENG'].forEach(st => {
-                let field = 'stock_' + st;
-                uniqueDb[item.drugCode][field] = (uniqueDb[item.drugCode][field] || 0) + (item[field] || 0);
-            });
-        }
-    });
-    dbInventory = Object.values(uniqueDb);
-
-    // Map categories dynamically for all items in the inventory
-    dbInventory.forEach(item => {
-        item.usageCategory = getDrugCategory(item);
-    });
-    localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
-
-    let localReqs = localStorage.getItem('SmartPharma_Requests');
-    if (localReqs && JSON.parse(localReqs).length > 0) {
-        dbRequests = JSON.parse(localReqs);
-    } else {
-        dbRequests = seedMockRequests();
+        console.error("無法連線至後端資料庫:", e);
+        showToast("資料庫連線失敗，請確認後端伺服器是否啟動", "error");
     }
     
     updateSystemState();
@@ -1052,8 +979,7 @@ async function executeReservationAPI() {
     }
 
     try {
-        localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
     } catch (error) {
         console.error("LocalStorage write failed:", error);
         showToast("⚠️ 儲存空間已滿，預約儲存失敗！請點擊右上角「重設資料」以清理空間。", "error");
@@ -1100,10 +1026,10 @@ function verifyPrescriptionAction(status) {
             if (med) {
                 let stockField = 'stock_' + req.to;
                 med[stockField] += req.qty;
-                localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
+                syncToDatabase();
             }
         }
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         closePrescriptionViewModal();
         updateSystemState();
     }
@@ -1114,7 +1040,7 @@ function apiCompleteReservation(reqId) {
     if (r) {
         r.status = '已領藥結案';
         r.paidStatus = '已支付';
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`發藥完成，交易結案！`, 'success');
         updateSystemState();
     }
@@ -1129,9 +1055,9 @@ function apiCancelReservation(reqId) {
         if (med) {
             let stockField = 'stock_' + r.to;
             med[stockField] += r.qty;
-            localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
+            syncToDatabase();
         }
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`預約已取消！`, 'warning');
         updateSystemState();
     }
@@ -1147,7 +1073,7 @@ function deleteReservation(id) {
     dbRequests = dbRequests.filter(req => req.relatedReserveId !== id);
     
     try {
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast("已成功刪除預約紀錄及關聯調撥單！", "success");
     } catch (e) {
         showToast("儲存失敗，請重設資料後再試", "error");
@@ -1163,7 +1089,7 @@ function deleteTransfer(id) {
     dbRequests = dbRequests.filter(req => req.id !== id);
     
     try {
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast("已成功刪除調撥紀錄！", "success");
     } catch (e) {
         showToast("儲存失敗，請重設資料後再試", "error");
@@ -1261,7 +1187,7 @@ function submitTransferRequest() {
         logisticsCondition: '待發貨'
     });
     
-    localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+    syncToDatabase();
     showToast(`成功向 ${STATIONS_METADATA[targetStation].name} 發出調度申請！`, 'success');
     updateSystemState();
 }
@@ -1277,9 +1203,9 @@ function apiApproveRequest(reqId) {
         if (med) {
             let fromField = 'stock_' + r.from;
             med[fromField] -= r.qty; // Deduct from donor
-            localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
+            syncToDatabase();
         }
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`核准調撥！請等待車隊收件。`, 'success');
         updateSystemState();
     }
@@ -1290,7 +1216,7 @@ function apiRejectRequest(reqId) {
     let r = dbRequests.find(req => req.id === reqId);
     if (r) {
         r.status = '已退回';
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`已拒絕調撥請求。`, 'warning');
         updateSystemState();
     }
@@ -1886,7 +1812,7 @@ function apiDriverDepart(reqId) {
         r.status = '專車配送中';
         r.dispatchTime = departTime;
         r.logisticsCondition = '常溫運輸中';
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`已接單出車！出發時間：${departTime}`, 'success');
         updateSystemState();
     }
@@ -1903,7 +1829,7 @@ function apiDriverArrive(reqId) {
         if (med) {
             let toField = 'stock_' + r.to;
             med[toField] = (med[toField] || 0) + r.qty;
-            localStorage.setItem('SmartPharma_Inventory', JSON.stringify(dbInventory));
+            syncToDatabase();
         }
 
         // If this transfer was linked to a resident reservation, update its state as well!
@@ -1915,7 +1841,7 @@ function apiDriverArrive(reqId) {
             }
         }
 
-        localStorage.setItem('SmartPharma_Requests', JSON.stringify(dbRequests));
+        syncToDatabase();
         showToast(`調撥藥品已點收，安全入庫！`, 'success');
         updateSystemState();
     }
@@ -2205,3 +2131,22 @@ window.onload = function() {
     setupDragAndDrop();
     fetchSystemData();
 };
+// =========================================================================
+// API SYNC LOGIC (Replaces LocalStorage)
+// =========================================================================
+async function syncToDatabase() {
+    try {
+        await fetch('http://localhost:3000/api/syncInventory', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbInventory)
+        });
+        await fetch('http://localhost:3000/api/syncRequests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dbRequests)
+        });
+    } catch (error) {
+        console.error("Database sync failed:", error);
+    }
+}
